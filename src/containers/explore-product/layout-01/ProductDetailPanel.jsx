@@ -19,9 +19,8 @@ import {
 import { toast } from "react-toastify";
 
 // Hàm làm tròn 2 chữ số thập phân
-const roundToTwoDecimals = (num) => {
-    return Math.round((num + Number.EPSILON) * 100) / 100;
-};
+const roundToTwoDecimals = (num) =>
+    Math.round((num + Number.EPSILON) * 100) / 100;
 
 // Lazy load Stripe
 let stripePromise = null;
@@ -34,7 +33,7 @@ const getStripe = () => {
     return stripePromise;
 };
 
-const CheckoutForm = ({ onSuccess, onError, onCancel, paymentIntentId }) => {
+const CheckoutForm = ({ onSuccess, onError, onCancel }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [isLoading, setIsLoading] = useState(false);
@@ -168,19 +167,18 @@ CheckoutForm.propTypes = {
     onSuccess: PropTypes.func.isRequired,
     onError: PropTypes.func.isRequired,
     onCancel: PropTypes.func.isRequired,
-    paymentIntentId: PropTypes.string,
 };
 
 const ProductDetailPanel = ({ product, isOpen, onClose }) => {
     const [clientSecret, setClientSecret] = useState(null);
-    const [paymentIntentId, setPaymentIntentId] = useState(null); // Thêm state để lưu paymentIntentId
-    const [error, setError] = useState(null);
+    const [paymentIntentId, setPaymentIntentId] = useState(null);
+    const [_error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
     const [isInitializing, setIsInitializing] = useState(false);
-    const [offerAmount, setOfferAmount] = useState(""); // Giá offer người dùng nhập
-    const [offerWarning, setOfferWarning] = useState(""); // Warning cho giá offer
-    const [isOfferValid, setIsOfferValid] = useState(false); // Trạng thái hợp lệ của offer
-    const [finalOfferAmount, setFinalOfferAmount] = useState(null); // Lưu giá offer cuối cùng đã xác nhận
+    const [offerAmount, setOfferAmount] = useState("");
+    const [offerWarning, setOfferWarning] = useState("");
+    const [isOfferValid, setIsOfferValid] = useState(false);
+    const [finalOfferAmount, setFinalOfferAmount] = useState(null);
     const debounceTimerRef = useRef(null);
 
     // Reset khi đóng panel
@@ -210,46 +208,55 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
         return () => window.removeEventListener("keydown", handleEsc);
     }, [onClose]);
 
+    // Hàm kiểm tra giá offer - moved before early return
+    const priceAmount = product?.price?.amount ?? 0;
+    const validateOffer = useCallback(
+        (value) => {
+            if (!value) {
+                setOfferWarning("");
+                setIsOfferValid(false);
+                return;
+            }
+
+            const offerNum = parseFloat(value);
+            if (Number.isNaN(offerNum)) {
+                setOfferWarning("Vui lòng nhập số hợp lệ");
+                setIsOfferValid(false);
+                return;
+            }
+
+            if (offerNum <= priceAmount) {
+                const warningMessage = `Giá offer phải lớn hơn giá gốc (${priceAmount})`;
+                setOfferWarning(warningMessage);
+                setIsOfferValid(false);
+            } else {
+                setOfferWarning("");
+                setIsOfferValid(true);
+            }
+        },
+        [priceAmount]
+    );
+
+    // Early return AFTER all hooks
     if (!product) return null;
 
-    const priceAmount = product.price?.amount ?? 0;
     const taxRate = 0.08;
 
-    // Tính toán giá cuối cùng - sử dụng finalOfferAmount nếu đã xác nhận, nếu không dùng offerAmount hiện tại
-    const effectiveOfferAmount = finalOfferAmount !== null ?
-        finalOfferAmount :
-        (offerAmount ? parseFloat(offerAmount) || 0 : priceAmount);
+    // Tính toán giá cuối cùng - sử dụng finalOfferAmount nếu đã xác nhận
+    let effectiveOfferAmount = priceAmount;
+    if (finalOfferAmount !== null) {
+        effectiveOfferAmount = finalOfferAmount;
+    } else if (offerAmount) {
+        const parsedOffer = parseFloat(offerAmount);
+        effectiveOfferAmount = Number.isNaN(parsedOffer) ? 0 : parsedOffer;
+    }
 
     const tax = roundToTwoDecimals(effectiveOfferAmount * taxRate);
     const total = roundToTwoDecimals(effectiveOfferAmount + tax);
 
-    // Hàm kiểm tra giá offer
-    const validateOffer = useCallback((value) => {
-        if (!value) {
-            setOfferWarning("");
-            setIsOfferValid(false);
-            return;
-        }
-
-        const offerNum = parseFloat(value);
-        if (isNaN(offerNum)) {
-            setOfferWarning("Vui lòng nhập số hợp lệ");
-            setIsOfferValid(false);
-            return;
-        }
-
-        if (offerNum <= priceAmount) {
-            setOfferWarning(`Giá offer phải lớn hơn giá gốc (${priceAmount})`);
-            setIsOfferValid(false);
-        } else {
-            setOfferWarning("");
-            setIsOfferValid(true);
-        }
-    }, [priceAmount]);
-
     // Hàm debounce cho việc validate
     const handleOfferChange = (e) => {
-        const value = e.target.value;
+        const { value } = e.target;
 
         // Chỉ cho phép số và dấu phẩy (thập phân)
         if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
@@ -316,7 +323,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
             }
 
             setClientSecret(data.data.clientSecret);
-            setPaymentIntentId(data.data.paymentIntentId); // Lưu paymentIntentId
+            setPaymentIntentId(data.data.paymentIntentId);
         } catch (err) {
             const errMsg = `Không thể khởi tạo thanh toán: ${err.message}`;
             setError(errMsg);
@@ -352,7 +359,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                            paymentIntentId: paymentIntentId,
+                            paymentIntentId,
                         }),
                     }
                 );
@@ -371,7 +378,8 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                     });
                 }
             } catch (err) {
-                toast.error("Lỗi khi hủy thanh toán: " + err.message, {
+                const errorMessage = `Lỗi khi hủy thanh toán: ${err.message}`;
+                toast.error(errorMessage, {
                     position: "top-center",
                     autoClose: 3000,
                 });
@@ -383,16 +391,23 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
         setPaymentIntentId(null);
         setError(null);
         setFinalOfferAmount(null);
-        // Giữ lại giá offer đã nhập để người dùng có thể chỉnh sửa lại
-        if (offerAmount) {
-            setOfferAmount(offerAmount);
-        }
     };
 
     const isMobile = typeof window !== "undefined" && window.innerWidth < 992;
 
     // Kiểm tra xem đã khởi tạo thanh toán chưa
     const hasPaymentInitialized = clientSecret !== null;
+
+    // Xác định giá trị hiển thị cho input
+    let displayValue;
+    if (hasPaymentInitialized) {
+        displayValue =
+            finalOfferAmount !== null
+                ? finalOfferAmount.toFixed(2)
+                : priceAmount.toFixed(2);
+    } else {
+        displayValue = offerAmount;
+    }
 
     const content = (
         <>
@@ -420,7 +435,10 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                 <strong>Giá gốc:</strong>{" "}
                 <span className="text-primary fw-bold">
                     {product.price?.currency || "$"}
-                    {priceAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} / lần
+                    {priceAmount.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                    })}{" "}
+                    / lần
                 </span>
             </div>
 
@@ -428,9 +446,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                 <strong>Đề xuất giá của bạn (offer):</strong>
                 <Form.Control
                     type="text"
-                    value={hasPaymentInitialized ?
-                        (finalOfferAmount !== null ? finalOfferAmount.toFixed(2) : priceAmount.toFixed(2)) :
-                        offerAmount}
+                    value={displayValue}
                     onChange={handleOfferChange}
                     placeholder={`Nhập giá lớn hơn ${priceAmount}`}
                     className="mt-1"
@@ -439,8 +455,8 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                         border: "1px solid #ced4da",
                         padding: "10px",
                     }}
-                    disabled={hasPaymentInitialized} // Disable khi đã khởi tạo thanh toán
-                    readOnly={hasPaymentInitialized} // Chỉ đọc khi đã khởi tạo thanh toán
+                    disabled={hasPaymentInitialized}
+                    readOnly={hasPaymentInitialized}
                 />
                 {offerWarning && !hasPaymentInitialized && (
                     <Form.Text className="text-danger fst-italic mt-1 d-block">
@@ -449,7 +465,8 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                 )}
                 {hasPaymentInitialized && finalOfferAmount !== null && (
                     <Form.Text className="text-success mt-1 d-block">
-                        Đã xác nhận offer: {product.price?.currency || "$"}{finalOfferAmount.toFixed(2)}
+                        Đã xác nhận offer: {product.price?.currency || "$"}
+                        {finalOfferAmount.toFixed(2)}
                     </Form.Text>
                 )}
             </div>
@@ -459,14 +476,18 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                     <div className="mb-3">
                         <strong>Thuế (8%):</strong>{" "}
                         {product.price?.currency || "$"}
-                        {tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {tax.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                        })}
                     </div>
                     <hr />
                     <div className="mb-4">
                         <strong>Tổng thanh toán:</strong>{" "}
                         <span className="fs-4 fw-bold text-success">
                             {product.price?.currency || "$"}
-                            {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            {total.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                            })}
                         </span>
                     </div>
                 </>
@@ -487,7 +508,6 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                                 onSuccess={handleSuccess}
                                 onError={handleError}
                                 onCancel={handleCancelPayment}
-                                paymentIntentId={paymentIntentId}
                             />
                         </Elements>
                     ) : (
@@ -496,7 +516,11 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                             size="lg"
                             className="w-100"
                             onClick={initializePayment}
-                            disabled={isInitializing || (priceAmount <= 0 && !offerAmount) || (offerAmount && !isOfferValid)}
+                            disabled={
+                                isInitializing ||
+                                (priceAmount <= 0 && !offerAmount) ||
+                                (offerAmount && !isOfferValid)
+                            }
                         >
                             {isInitializing ? (
                                 <>
