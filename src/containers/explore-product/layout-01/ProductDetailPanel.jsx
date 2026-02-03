@@ -32,19 +32,19 @@ const CheckoutForm = ({ onSuccess, onError }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [isLoading, setIsLoading] = useState(false);
-    const [message, setMessage] = useState("");
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         e.stopPropagation();
 
         if (!stripe || !elements) {
-            setMessage("Stripe chưa sẵn sàng. Vui lòng thử lại.");
+            toast.error("Stripe chưa được khởi tạo đúng cách.", {
+                position: "top-center",
+            });
             return;
         }
 
         setIsLoading(true);
-        setMessage("");
 
         try {
             const { error, paymentIntent } = await stripe.confirmPayment({
@@ -60,23 +60,29 @@ const CheckoutForm = ({ onSuccess, onError }) => {
                 ) {
                     errorMsg = error.message;
                 }
-                setMessage(errorMsg);
+                toast.error(errorMsg, {
+                    position: "top-center",
+                    autoClose: 3000,
+                });
                 onError(errorMsg);
             } else if (paymentIntent) {
                 if (paymentIntent.status === "succeeded") {
-                    setMessage("Thanh toán thành công!");
                     onSuccess();
                 } else if (paymentIntent.status === "requires_action") {
-                    setMessage("Vui lòng xác thực thanh toán (3D Secure)...");
+                    toast.warning(
+                        "Vui lòng xác thực thanh toán (3D Secure)...",
+                        { position: "top-center", autoClose: 3000 }
+                    );
                 } else {
                     const msg = `Thanh toán chưa hoàn tất (status: ${paymentIntent.status}). Vui lòng thử lại.`;
-                    setMessage(msg);
-                    toast.warning(msg, { position: "top-center" });
+                    toast.warning(msg, {
+                        position: "top-center",
+                        autoClose: 3000,
+                    });
                 }
             }
         } catch (err) {
             const errMsg = `Lỗi hệ thống thanh toán: ${err.message}`;
-            setMessage(errMsg);
             onError(errMsg);
             toast.error(errMsg, { position: "top-center" });
         }
@@ -273,40 +279,42 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                 </Alert>
             )}
 
-            {!success && <div className="mt-4">
-                {clientSecret ? (
-                    <Elements
-                        stripe={getStripe()}
-                        options={{ clientSecret }}
-                    >
-                        <CheckoutForm
-                            onSuccess={handleSuccess}
-                            onError={handleError}
-                        />
-                    </Elements>
-                ) : (
-                    <Button
-                        variant="primary"
-                        size="lg"
-                        className="w-100"
-                        onClick={initializePayment}
-                        disabled={isInitializing || priceAmount <= 0}
-                    >
-                        {isInitializing ? (
-                            <>
-                                <Spinner
-                                    animation="border"
-                                    size="sm"
-                                    className="me-2"
-                                />
-                                Đang khởi tạo thanh toán...
-                            </>
-                        ) : (
-                            "Thanh toán ngay"
-                        )}
-                    </Button>
-                )}
-            </div>}
+            {!success && (
+                <div className="mt-4">
+                    {clientSecret ? (
+                        <Elements
+                            stripe={getStripe()}
+                            options={{ clientSecret }}
+                        >
+                            <CheckoutForm
+                                onSuccess={handleSuccess}
+                                onError={handleError}
+                            />
+                        </Elements>
+                    ) : (
+                        <Button
+                            variant="primary"
+                            size="lg"
+                            className="w-100"
+                            onClick={initializePayment}
+                            disabled={isInitializing || priceAmount <= 0}
+                        >
+                            {isInitializing ? (
+                                <>
+                                    <Spinner
+                                        animation="border"
+                                        size="sm"
+                                        className="me-2"
+                                    />
+                                    Đang khởi tạo thanh toán...
+                                </>
+                            ) : (
+                                "Thanh toán ngay"
+                            )}
+                        </Button>
+                    )}
+                </div>
+            )}
 
             <p className="text-center text-muted mt-3 small">
                 Thanh toán an toàn qua Stripe (một lần) - Chỉ chấp nhận thẻ
