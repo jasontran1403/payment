@@ -1,13 +1,12 @@
-import { useReducer, useRef, useEffect, useCallback, useState } from "react";
+import { useReducer, useRef, useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import clsx from "clsx";
-import SectionTitle from "@components/section-title/layout-02";
 import Product from "@components/product/layout-01";
 import ProductFilter from "@components/product-filter/layout-01";
 import FilterButton from "@ui/filter-button";
 import { slideToggle } from "@utils/methods";
 import { SectionTitleType, ProductType } from "@utils/types";
-import ProductDetailPanel from "./ProductDetailPanel"; // component mới
+import ProductDetailPanel from "./ProductDetailPanel";
 
 function reducer(state, action) {
     switch (action.type) {
@@ -23,8 +22,6 @@ function reducer(state, action) {
 }
 
 const ExploreProductArea = ({ className, space, data }) => {
-    const itemsToFilter = [...data.products]; // chỉ copy 1 lần
-
     const [state, dispatch] = useReducer(reducer, {
         filterToggle: false,
         products: data.products || [],
@@ -50,17 +47,18 @@ const ExploreProductArea = ({ className, space, data }) => {
     };
 
     const sortHandler = ({ value }) => {
-        const sorted = [...state.products].sort((a, b) =>
-            value === "most-liked"
-                ? b.likeCount - a.likeCount
-                : a.likeCount - b.likeCount
-        );
+        const sorted = [...state.products].sort((a, b) => {
+            if (value === "most-liked") {
+                return b.likeCount - a.likeCount;
+            }
+            return a.likeCount - b.likeCount;
+        });
         dispatch({ type: "SET_PRODUCTS", payload: sorted });
     };
 
     const filterMethods = (item, filterKey, value) => {
         if (value === "all") return false;
-        let itemKey = filterKey === "category" ? "categories" : filterKey;
+        const itemKey = filterKey === "category" ? "categories" : filterKey;
 
         if (filterKey === "price") {
             const amount = item.price?.amount;
@@ -74,25 +72,20 @@ const ExploreProductArea = ({ className, space, data }) => {
         return item[itemKey] !== value;
     };
 
-    // Filter chỉ chạy khi inputs thay đổi
     useEffect(() => {
-        const filtered = itemsToFilter.filter((item) => {
-            for (const key in state.inputs) {
-                if (filterMethods(item, key, state.inputs[key])) {
-                    return false;
-                }
-            }
-            return true;
-        });
+        const itemsToFilter = data.products || [];
 
-        // Chỉ dispatch nếu filtered khác state.products (tránh loop)
-        if (JSON.stringify(filtered) !== JSON.stringify(state.products)) {
-            dispatch({ type: "SET_PRODUCTS", payload: filtered });
-        }
-    }, [state.inputs, itemsToFilter]); // dependency ổn định
+        const filtered = itemsToFilter.filter((item) =>
+            Object.entries(state.inputs).every(
+                ([key, value]) => !filterMethods(item, key, value)
+            )
+        );
+
+        dispatch({ type: "SET_PRODUCTS", payload: filtered });
+    }, [state.inputs, data.products]);
 
     const handleProductClick = (e, prod) => {
-        e.preventDefault(); // ngăn scroll jump
+        e.preventDefault();
         e.stopPropagation();
         setSelectedProduct(prod);
         setIsPanelOpen(true);
@@ -112,9 +105,12 @@ const ExploreProductArea = ({ className, space, data }) => {
             )}
         >
             <div className="container">
-                {/* <div className="row mb--20 align-items-center">
+                <div className="row mb--20 align-items-center">
                     <div className="col-lg-6 col-md-6 col-sm-6 col-12 mt_mobile--15">
-                        <FilterButton open={state.filterToggle} onClick={filterHandler} />
+                        <FilterButton
+                            open={state.filterToggle}
+                            onClick={filterHandler}
+                        />
                     </div>
                 </div>
 
@@ -124,22 +120,29 @@ const ExploreProductArea = ({ className, space, data }) => {
                     sortHandler={sortHandler}
                     priceHandler={priceHandler}
                     inputs={state.inputs}
-                /> */}
+                />
 
                 <div className="row g-5">
                     {state.products.length > 0 ? (
                         state.products.slice(0, 10).map((prod) => (
                             <div
                                 key={prod.id}
-                                className="col-12 col-sm-6 col-md-6 col-lg-4 col-xl-3" // điều chỉnh số cột cho đẹp
+                                className="col-12 col-sm-6 col-md-6 col-lg-4 col-xl-3"
                                 onClick={(e) => handleProductClick(e, prod)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                        e.preventDefault();
+                                        handleProductClick(e, prod);
+                                    }
+                                }}
+                                role="button"
+                                tabIndex={0}
                                 style={{ cursor: "pointer" }}
                             >
                                 <Product
                                     overlay
                                     title={prod.title}
                                     price={prod.price}
-                                    likeCount={prod.likeCount}
                                     image={prod.images?.[0]}
                                 />
                             </div>

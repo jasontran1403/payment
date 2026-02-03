@@ -28,7 +28,7 @@ const getStripe = () => {
     return stripePromise;
 };
 
-const CheckoutForm = ({ clientSecret, onSuccess }) => {
+const CheckoutForm = ({ onSuccess, onError }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +36,7 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        e.stopPropagation(); // Ngăn bubble nếu cần
+        e.stopPropagation();
 
         if (!stripe || !elements) {
             setMessage("Stripe chưa sẵn sàng. Vui lòng thử lại.");
@@ -49,7 +49,7 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
         try {
             const { error, paymentIntent } = await stripe.confirmPayment({
                 elements,
-                redirect: "if_required", // Chỉ redirect nếu BẮT BUỘC (3D Secure), không reload trang
+                redirect: "if_required",
             });
 
             if (error) {
@@ -61,6 +61,7 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
                     errorMsg = error.message;
                 }
                 setMessage(errorMsg);
+                onError(errorMsg);
                 toast.error(errorMsg, {
                     position: "top-center",
                     autoClose: 5000,
@@ -78,7 +79,6 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
                     );
                 } else if (paymentIntent.status === "requires_action") {
                     setMessage("Vui lòng xác thực thanh toán (3D Secure)...");
-                    // Stripe tự hiện popup xác thực, sau đó callback sẽ chạy lại
                 } else {
                     const msg = `Thanh toán chưa hoàn tất (status: ${paymentIntent.status}). Vui lòng thử lại.`;
                     setMessage(msg);
@@ -86,8 +86,9 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
                 }
             }
         } catch (err) {
-            const errMsg = "Lỗi hệ thống thanh toán: " + err.message;
+            const errMsg = `Lỗi hệ thống thanh toán: ${err.message}`;
             setMessage(errMsg);
+            onError(errMsg);
             toast.error(errMsg, { position: "top-center" });
         }
 
@@ -125,18 +126,27 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
                     "Xác nhận thanh toán"
                 )}
             </Button>
+
+            {message && (
+                <Alert
+                    variant={
+                        message.includes("Thành công") ? "success" : "danger"
+                    }
+                    className="mt-3"
+                >
+                    {message}
+                </Alert>
+            )}
         </form>
     );
 };
 
+CheckoutForm.propTypes = {
+    onSuccess: PropTypes.func.isRequired,
+    onError: PropTypes.func.isRequired,
+};
+
 const ProductDetailPanel = ({ product, isOpen, onClose }) => {
-    if (!product) return null;
-
-    const priceAmount = product.price?.amount ?? 0;
-    const taxRate = 0.08;
-    const tax = priceAmount * taxRate;
-    const total = priceAmount + tax;
-
     const [clientSecret, setClientSecret] = useState(null);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
@@ -151,6 +161,22 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
             setIsInitializing(false);
         }
     }, [isOpen]);
+
+    // Đóng bằng Esc
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", handleEsc);
+        return () => window.removeEventListener("keydown", handleEsc);
+    }, [onClose]);
+
+    if (!product) return null;
+
+    const priceAmount = product.price?.amount ?? 0;
+    const taxRate = 0.08;
+    const tax = priceAmount * taxRate;
+    const total = priceAmount + tax;
 
     const initializePayment = async () => {
         if (clientSecret || isInitializing) return;
@@ -187,7 +213,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
 
             setClientSecret(data.data.clientSecret);
         } catch (err) {
-            const errMsg = "Không thể khởi tạo thanh toán: " + err.message;
+            const errMsg = `Không thể khởi tạo thanh toán: ${err.message}`;
             setError(errMsg);
             toast.error(errMsg, { position: "top-center" });
         } finally {
@@ -197,23 +223,17 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
 
     const handleSuccess = () => {
         setSuccess(true);
-
-        setTimeout(() => onClose(), 3500); // Đóng panel sau toast
+        toast.success("Thanh toán thành công! Chúng tôi sẽ liên hệ sớm.", {
+            position: "top-center",
+            autoClose: 3000,
+        });
+        setTimeout(() => onClose(), 3500);
     };
 
     const handleError = (msg) => {
         setError(msg);
         toast.error(msg || "Thanh toán thất bại", { position: "top-center" });
     };
-
-    // Đóng bằng Esc
-    useEffect(() => {
-        const handleEsc = (e) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", handleEsc);
-        return () => window.removeEventListener("keydown", handleEsc);
-    }, [onClose]);
 
     const isMobile = typeof window !== "undefined" && window.innerWidth < 992;
 
@@ -245,7 +265,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                         <strong>Giá:</strong>{" "}
                         <span className="text-primary fw-bold">
                             {product.price?.currency || "$"}
-                            {priceAmount.toLocaleString()}
+                            {priceAmount.toLocaleString()} / lần
                         </span>
                     </div>
                     <div className="mb-3">
@@ -288,7 +308,10 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                             stripe={getStripe()}
                             options={{ clientSecret }}
                         >
-                            <CheckoutForm onSuccess={handleSuccess} />
+                            <CheckoutForm
+                                onSuccess={handleSuccess}
+                                onError={handleError}
+                            />
                         </Elements>
                     ) : (
                         <Button
@@ -316,7 +339,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
             )}
 
             <p className="text-center text-muted mt-3 small">
-                Thanh toán an toàn qua Stripe
+                Thanh toán an toàn qua Stripe (một lần) - Chỉ chấp nhận thẻ
             </p>
         </>
     );
@@ -329,7 +352,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                 centered
                 size="lg"
                 backdrop="static"
-                keyboard={true}
+                keyboard
             >
                 <Modal.Header closeButton>
                     <Modal.Title>Chi tiết gói dịch vụ</Modal.Title>
@@ -350,7 +373,19 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
 };
 
 ProductDetailPanel.propTypes = {
-    product: PropTypes.object,
+    product: PropTypes.shape({
+        id: PropTypes.number,
+        title: PropTypes.string,
+        price: PropTypes.shape({
+            amount: PropTypes.number,
+            currency: PropTypes.string,
+        }),
+        images: PropTypes.arrayOf(
+            PropTypes.shape({
+                src: PropTypes.string,
+            })
+        ),
+    }),
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
 };
