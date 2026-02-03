@@ -1,0 +1,62 @@
+[
+    {
+        "id": 6,
+        "title": "Gói UX/UI Maintenance - Thiết kế & Giao diện",
+        "price": {
+            "amount": 100,
+            "currency": "$ "
+        },
+        "likeCount": 205,
+        "categories": ["uxui", "maintenance"],
+        "images": [
+            {
+                "src": "/images/product/1.jpg"
+            }
+        ]
+    },
+    {
+        "id": 7,
+        "title": "Gói Backend Maintenance - Server & API",
+        "price": {
+            "amount": 300,
+            "currency": "$ "
+        },
+        "likeCount": 322,
+        "categories": ["backend", "maintenance"],
+        "images": [
+            {
+                "src": "/images/product/2.jpg"
+            }
+        ]
+    },
+    {
+        "id": 8,
+        "title": "Gói Database Optimization & Maintenance",
+        "price": {
+            "amount": 500,
+            "currency": "$ "
+        },
+        "likeCount": 420,
+        "categories": ["database", "maintenance"],
+        "images": [
+            {
+                "src": "/images/product/3.jpg"
+            }
+        ]
+    },
+    {
+        "id": 9,
+        "title": "Gói Full Maintenance - UX/UI + Backend",
+        "price": {
+            "amount": 200,
+            "currency": "$ "
+        },
+        "likeCount": 20,
+        "categories": ["uxui", "backend", "maintenance"],
+        "images": [
+            {
+                "src": "/images/product/4.jpg"
+            }
+        ]
+    }
+]
