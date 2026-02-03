@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
 import {
     Offcanvas,
@@ -7,6 +7,7 @@ import {
     Image,
     Spinner,
     Alert,
+    Form,
 } from "react-bootstrap";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -16,6 +17,11 @@ import {
     useElements,
 } from "@stripe/react-stripe-js";
 import { toast } from "react-toastify";
+
+// Hàm làm tròn 2 chữ số thập phân
+const roundToTwoDecimals = (num) => {
+    return Math.round((num + Number.EPSILON) * 100) / 100;
+};
 
 // Lazy load Stripe
 let stripePromise = null;
@@ -28,10 +34,11 @@ const getStripe = () => {
     return stripePromise;
 };
 
-const CheckoutForm = ({ onSuccess, onError }) => {
+const CheckoutForm = ({ onSuccess, onError, onCancel, paymentIntentId }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [isLoading, setIsLoading] = useState(false);
+    const [isCanceling, setIsCanceling] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -90,6 +97,15 @@ const CheckoutForm = ({ onSuccess, onError }) => {
         setIsLoading(false);
     };
 
+    const handleCancelClick = async () => {
+        setIsCanceling(true);
+        try {
+            await onCancel();
+        } finally {
+            setIsCanceling(false);
+        }
+    };
+
     return (
         <form id="payment-form" onSubmit={handleSubmit}>
             <PaymentElement
@@ -101,26 +117,49 @@ const CheckoutForm = ({ onSuccess, onError }) => {
                     },
                 }}
             />
-            <Button
-                variant="primary"
-                size="lg"
-                className="w-100 mt-4"
-                disabled={isLoading || !stripe || !elements}
-                type="submit"
-            >
-                {isLoading ? (
-                    <>
-                        <Spinner
-                            animation="border"
-                            size="sm"
-                            className="me-2"
-                        />
-                        Đang xử lý...
-                    </>
-                ) : (
-                    "Xác nhận thanh toán"
-                )}
-            </Button>
+            <div className="d-flex gap-2 mt-4">
+                <Button
+                    variant="danger"
+                    size="lg"
+                    className="w-50"
+                    onClick={handleCancelClick}
+                    disabled={isLoading || isCanceling}
+                    type="button"
+                >
+                    {isCanceling ? (
+                        <>
+                            <Spinner
+                                animation="border"
+                                size="sm"
+                                className="me-2"
+                            />
+                            Đang hủy...
+                        </>
+                    ) : (
+                        "Hủy"
+                    )}
+                </Button>
+                <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-50"
+                    disabled={isLoading || !stripe || !elements || isCanceling}
+                    type="submit"
+                >
+                    {isLoading ? (
+                        <>
+                            <Spinner
+                                animation="border"
+                                size="sm"
+                                className="me-2"
+                            />
+                            Đang xử lý...
+                        </>
+                    ) : (
+                        "Xác nhận"
+                    )}
+                </Button>
+            </div>
         </form>
     );
 };
@@ -128,21 +167,37 @@ const CheckoutForm = ({ onSuccess, onError }) => {
 CheckoutForm.propTypes = {
     onSuccess: PropTypes.func.isRequired,
     onError: PropTypes.func.isRequired,
+    onCancel: PropTypes.func.isRequired,
+    paymentIntentId: PropTypes.string,
 };
 
 const ProductDetailPanel = ({ product, isOpen, onClose }) => {
     const [clientSecret, setClientSecret] = useState(null);
+    const [paymentIntentId, setPaymentIntentId] = useState(null); // Thêm state để lưu paymentIntentId
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
     const [isInitializing, setIsInitializing] = useState(false);
+    const [offerAmount, setOfferAmount] = useState(""); // Giá offer người dùng nhập
+    const [offerWarning, setOfferWarning] = useState(""); // Warning cho giá offer
+    const [isOfferValid, setIsOfferValid] = useState(false); // Trạng thái hợp lệ của offer
+    const [finalOfferAmount, setFinalOfferAmount] = useState(null); // Lưu giá offer cuối cùng đã xác nhận
+    const debounceTimerRef = useRef(null);
 
     // Reset khi đóng panel
     useEffect(() => {
         if (!isOpen) {
             setClientSecret(null);
+            setPaymentIntentId(null);
             setError(null);
             setSuccess(false);
             setIsInitializing(false);
+            setOfferAmount("");
+            setOfferWarning("");
+            setIsOfferValid(false);
+            setFinalOfferAmount(null);
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
         }
     }, [isOpen]);
 
@@ -159,16 +214,81 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
 
     const priceAmount = product.price?.amount ?? 0;
     const taxRate = 0.08;
-    const tax = priceAmount * taxRate;
-    const total = priceAmount + tax;
+
+    // Tính toán giá cuối cùng - sử dụng finalOfferAmount nếu đã xác nhận, nếu không dùng offerAmount hiện tại
+    const effectiveOfferAmount = finalOfferAmount !== null ?
+        finalOfferAmount :
+        (offerAmount ? parseFloat(offerAmount) || 0 : priceAmount);
+
+    const tax = roundToTwoDecimals(effectiveOfferAmount * taxRate);
+    const total = roundToTwoDecimals(effectiveOfferAmount + tax);
+
+    // Hàm kiểm tra giá offer
+    const validateOffer = useCallback((value) => {
+        if (!value) {
+            setOfferWarning("");
+            setIsOfferValid(false);
+            return;
+        }
+
+        const offerNum = parseFloat(value);
+        if (isNaN(offerNum)) {
+            setOfferWarning("Vui lòng nhập số hợp lệ");
+            setIsOfferValid(false);
+            return;
+        }
+
+        if (offerNum <= priceAmount) {
+            setOfferWarning(`Giá offer phải lớn hơn giá gốc (${priceAmount})`);
+            setIsOfferValid(false);
+        } else {
+            setOfferWarning("");
+            setIsOfferValid(true);
+        }
+    }, [priceAmount]);
+
+    // Hàm debounce cho việc validate
+    const handleOfferChange = (e) => {
+        const value = e.target.value;
+
+        // Chỉ cho phép số và dấu phẩy (thập phân)
+        if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+            setOfferAmount(value);
+
+            // Clear timer cũ nếu có
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+
+            // Set timer mới với 600ms
+            debounceTimerRef.current = setTimeout(() => {
+                validateOffer(value);
+            }, 600);
+        }
+    };
 
     const initializePayment = async () => {
+        // Kiểm tra giá offer hợp lệ trước khi gọi API
+        if (offerAmount) {
+            if (!isOfferValid) {
+                toast.error("Vui lòng nhập giá offer hợp lệ", {
+                    position: "top-center",
+                });
+                return;
+            }
+            // Lưu giá offer cuối cùng đã xác nhận
+            setFinalOfferAmount(parseFloat(offerAmount));
+        }
+
         if (clientSecret || isInitializing) return;
 
         setIsInitializing(true);
         setError(null);
 
         try {
+            // Gửi số tiền đã được làm tròn 2 số thập phân
+            const amountToSend = total;
+
             const response = await fetch(
                 "https://ghoul-helpful-salmon.ngrok-free.app/api/auth/create-payment-intent",
                 {
@@ -177,7 +297,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                     body: JSON.stringify({
                         productId: product.id,
                         title: product.title,
-                        amount: total,
+                        amount: amountToSend,
                     }),
                 }
             );
@@ -196,6 +316,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
             }
 
             setClientSecret(data.data.clientSecret);
+            setPaymentIntentId(data.data.paymentIntentId); // Lưu paymentIntentId
         } catch (err) {
             const errMsg = `Không thể khởi tạo thanh toán: ${err.message}`;
             setError(errMsg);
@@ -219,10 +340,59 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
 
     const handleError = (msg) => {
         setError(msg);
-        toast.error(msg || "Thanh toán thất bại", { position: "top-center" });
+    };
+
+    const handleCancelPayment = async () => {
+        if (paymentIntentId) {
+            try {
+                // Gọi API để hủy payment intent
+                const response = await fetch(
+                    "https://ghoul-helpful-salmon.ngrok-free.app/api/auth/cancel-payment-intent",
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            paymentIntentId: paymentIntentId,
+                        }),
+                    }
+                );
+
+                const data = await response.json();
+
+                if (data.success) {
+                    toast.success("Đã hủy thanh toán", {
+                        position: "top-center",
+                        autoClose: 3000,
+                    });
+                } else {
+                    toast.warning(data.message || "Không thể hủy thanh toán", {
+                        position: "top-center",
+                        autoClose: 3000,
+                    });
+                }
+            } catch (err) {
+                toast.error("Lỗi khi hủy thanh toán: " + err.message, {
+                    position: "top-center",
+                    autoClose: 3000,
+                });
+            }
+        }
+
+        // Reset state về ban đầu
+        setClientSecret(null);
+        setPaymentIntentId(null);
+        setError(null);
+        setFinalOfferAmount(null);
+        // Giữ lại giá offer đã nhập để người dùng có thể chỉnh sửa lại
+        if (offerAmount) {
+            setOfferAmount(offerAmount);
+        }
     };
 
     const isMobile = typeof window !== "undefined" && window.innerWidth < 992;
+
+    // Kiểm tra xem đã khởi tạo thanh toán chưa
+    const hasPaymentInitialized = clientSecret !== null;
 
     const content = (
         <>
@@ -246,30 +416,57 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                 <strong>ID sản phẩm:</strong> #{product.id || "N/A"}
             </div>
 
-            {priceAmount > 0 ? (
+            <div className="mb-3">
+                <strong>Giá gốc:</strong>{" "}
+                <span className="text-primary fw-bold">
+                    {product.price?.currency || "$"}
+                    {priceAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} / lần
+                </span>
+            </div>
+
+            <div className="mb-3">
+                <strong>Đề xuất giá của bạn (offer):</strong>
+                <Form.Control
+                    type="text"
+                    value={hasPaymentInitialized ?
+                        (finalOfferAmount !== null ? finalOfferAmount.toFixed(2) : priceAmount.toFixed(2)) :
+                        offerAmount}
+                    onChange={handleOfferChange}
+                    placeholder={`Nhập giá lớn hơn ${priceAmount}`}
+                    className="mt-1"
+                    style={{
+                        borderRadius: "8px",
+                        border: "1px solid #ced4da",
+                        padding: "10px",
+                    }}
+                    disabled={hasPaymentInitialized} // Disable khi đã khởi tạo thanh toán
+                    readOnly={hasPaymentInitialized} // Chỉ đọc khi đã khởi tạo thanh toán
+                />
+                {offerWarning && !hasPaymentInitialized && (
+                    <Form.Text className="text-danger fst-italic mt-1 d-block">
+                        {offerWarning}
+                    </Form.Text>
+                )}
+                {hasPaymentInitialized && finalOfferAmount !== null && (
+                    <Form.Text className="text-success mt-1 d-block">
+                        Đã xác nhận offer: {product.price?.currency || "$"}{finalOfferAmount.toFixed(2)}
+                    </Form.Text>
+                )}
+            </div>
+
+            {priceAmount > 0 || offerAmount ? (
                 <>
-                    <div className="mb-3">
-                        <strong>Giá:</strong>{" "}
-                        <span className="text-primary fw-bold">
-                            {product.price?.currency || "$"}
-                            {priceAmount.toLocaleString()} / lần
-                        </span>
-                    </div>
                     <div className="mb-3">
                         <strong>Thuế (8%):</strong>{" "}
                         {product.price?.currency || "$"}
-                        {tax.toLocaleString(undefined, {
-                            minimumFractionDigits: 0,
-                        })}
+                        {tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </div>
                     <hr />
                     <div className="mb-4">
                         <strong>Tổng thanh toán:</strong>{" "}
                         <span className="fs-4 fw-bold text-success">
                             {product.price?.currency || "$"}
-                            {total.toLocaleString(undefined, {
-                                minimumFractionDigits: 0,
-                            })}
+                            {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                     </div>
                 </>
@@ -289,6 +486,8 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                             <CheckoutForm
                                 onSuccess={handleSuccess}
                                 onError={handleError}
+                                onCancel={handleCancelPayment}
+                                paymentIntentId={paymentIntentId}
                             />
                         </Elements>
                     ) : (
@@ -297,7 +496,7 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                             size="lg"
                             className="w-100"
                             onClick={initializePayment}
-                            disabled={isInitializing || priceAmount <= 0}
+                            disabled={isInitializing || (priceAmount <= 0 && !offerAmount) || (offerAmount && !isOfferValid)}
                         >
                             {isInitializing ? (
                                 <>
