@@ -18,11 +18,9 @@ import {
 } from "@stripe/react-stripe-js";
 import { toast } from "react-toastify";
 
-// Hàm làm tròn 2 chữ số thập phân
 const roundToTwoDecimals = (num) =>
     Math.round((num + Number.EPSILON) * 100) / 100;
 
-// Lazy load Stripe
 let stripePromise = null;
 const getStripe = () => {
     if (!stripePromise) {
@@ -181,7 +179,6 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
     const [finalOfferAmount, setFinalOfferAmount] = useState(null);
     const debounceTimerRef = useRef(null);
 
-    // Reset khi đóng panel
     useEffect(() => {
         if (!isOpen) {
             setClientSecret(null);
@@ -199,7 +196,6 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
         }
     }, [isOpen]);
 
-    // Đóng bằng Esc
     useEffect(() => {
         const handleEsc = (e) => {
             if (e.key === "Escape") onClose();
@@ -208,7 +204,6 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
         return () => window.removeEventListener("keydown", handleEsc);
     }, [onClose]);
 
-    // Hàm kiểm tra giá offer - moved before early return
     const priceAmount = product?.price?.amount ?? 0;
     const validateOffer = useCallback(
         (value) => {
@@ -237,12 +232,10 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
         [priceAmount]
     );
 
-    // Early return AFTER all hooks
     if (!product) return null;
 
     const taxRate = 0.08;
 
-    // Tính toán giá cuối cùng - sử dụng finalOfferAmount nếu đã xác nhận
     let effectiveOfferAmount = priceAmount;
     if (finalOfferAmount !== null) {
         effectiveOfferAmount = finalOfferAmount;
@@ -254,28 +247,23 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
     const tax = roundToTwoDecimals(effectiveOfferAmount * taxRate);
     const total = roundToTwoDecimals(effectiveOfferAmount + tax);
 
-    // Hàm debounce cho việc validate
     const handleOfferChange = (e) => {
         const { value } = e.target;
 
-        // Chỉ cho phép số và dấu phẩy (thập phân)
         if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
             setOfferAmount(value);
 
-            // Clear timer cũ nếu có
             if (debounceTimerRef.current) {
                 clearTimeout(debounceTimerRef.current);
             }
 
-            // Set timer mới với 600ms
             debounceTimerRef.current = setTimeout(() => {
                 validateOffer(value);
-            }, 600);
+            }, 400);
         }
     };
 
     const initializePayment = async () => {
-        // Kiểm tra giá offer hợp lệ trước khi gọi API
         if (offerAmount) {
             if (!isOfferValid) {
                 toast.error("Vui lòng nhập giá offer hợp lệ", {
@@ -283,7 +271,6 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                 });
                 return;
             }
-            // Lưu giá offer cuối cùng đã xác nhận
             setFinalOfferAmount(parseFloat(offerAmount));
         }
 
