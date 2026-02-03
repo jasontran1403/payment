@@ -115,17 +115,6 @@ const CheckoutForm = ({ onSuccess, onError }) => {
                     "Xác nhận thanh toán"
                 )}
             </Button>
-
-            {message && (
-                <Alert
-                    variant={
-                        message.includes("Thành công") ? "success" : "danger"
-                    }
-                    className="mt-3"
-                >
-                    {message}
-                </Alert>
-            )}
         </form>
     );
 };
@@ -212,7 +201,14 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
 
     const handleSuccess = () => {
         setSuccess(true);
-        setTimeout(() => onClose(), 3500);
+
+        toast.success("Thanh toán thành công!", {
+            position: "top-center",
+            autoClose: 3000,
+            onClose: () => {
+                onClose();
+            },
+        });
     };
 
     const handleError = (msg) => {
@@ -277,51 +273,40 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                 </Alert>
             )}
 
-            {error && (
-                <Alert variant="danger" className="mb-4">
-                    {error}
-                </Alert>
-            )}
-            {success ? (
-                <Alert variant="success" className="mb-4">
-                    Thanh toán thành công! Chúng tôi sẽ liên hệ sớm.
-                </Alert>
-            ) : (
-                <div className="mt-4">
-                    {clientSecret ? (
-                        <Elements
-                            stripe={getStripe()}
-                            options={{ clientSecret }}
-                        >
-                            <CheckoutForm
-                                onSuccess={handleSuccess}
-                                onError={handleError}
-                            />
-                        </Elements>
-                    ) : (
-                        <Button
-                            variant="primary"
-                            size="lg"
-                            className="w-100"
-                            onClick={initializePayment}
-                            disabled={isInitializing || priceAmount <= 0}
-                        >
-                            {isInitializing ? (
-                                <>
-                                    <Spinner
-                                        animation="border"
-                                        size="sm"
-                                        className="me-2"
-                                    />
-                                    Đang khởi tạo thanh toán...
-                                </>
-                            ) : (
-                                "Thanh toán ngay"
-                            )}
-                        </Button>
-                    )}
-                </div>
-            )}
+            {!success && <div className="mt-4">
+                {clientSecret ? (
+                    <Elements
+                        stripe={getStripe()}
+                        options={{ clientSecret }}
+                    >
+                        <CheckoutForm
+                            onSuccess={handleSuccess}
+                            onError={handleError}
+                        />
+                    </Elements>
+                ) : (
+                    <Button
+                        variant="primary"
+                        size="lg"
+                        className="w-100"
+                        onClick={initializePayment}
+                        disabled={isInitializing || priceAmount <= 0}
+                    >
+                        {isInitializing ? (
+                            <>
+                                <Spinner
+                                    animation="border"
+                                    size="sm"
+                                    className="me-2"
+                                />
+                                Đang khởi tạo thanh toán...
+                            </>
+                        ) : (
+                            "Thanh toán ngay"
+                        )}
+                    </Button>
+                )}
+            </div>}
 
             <p className="text-center text-muted mt-3 small">
                 Thanh toán an toàn qua Stripe (một lần) - Chỉ chấp nhận thẻ
