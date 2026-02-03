@@ -1,15 +1,29 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { Offcanvas, Modal, Button, Image, Spinner, Alert } from "react-bootstrap";
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { toast } from 'react-toastify';
+import {
+    Offcanvas,
+    Modal,
+    Button,
+    Image,
+    Spinner,
+    Alert,
+} from "react-bootstrap";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+    Elements,
+    PaymentElement,
+    useStripe,
+    useElements,
+} from "@stripe/react-stripe-js";
+import { toast } from "react-toastify";
 
 // Lazy load Stripe
 let stripePromise = null;
 const getStripe = () => {
     if (!stripePromise) {
-        stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+        stripePromise = loadStripe(
+            process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+        );
     }
     return stripePromise;
 };
@@ -18,7 +32,7 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [isLoading, setIsLoading] = useState(false);
-    const [message, setMessage] = useState('');
+    const [message, setMessage] = useState("");
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -30,30 +44,39 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
         }
 
         setIsLoading(true);
-        setMessage('');
+        setMessage("");
 
         try {
             const { error, paymentIntent } = await stripe.confirmPayment({
                 elements,
-                redirect: 'if_required', // Chỉ redirect nếu BẮT BUỘC (3D Secure), không reload trang
+                redirect: "if_required", // Chỉ redirect nếu BẮT BUỘC (3D Secure), không reload trang
             });
 
             if (error) {
                 let errorMsg = "Có lỗi xảy ra khi xử lý thanh toán.";
-                if (error.type === "card_error" || error.type === "validation_error") {
+                if (
+                    error.type === "card_error" ||
+                    error.type === "validation_error"
+                ) {
                     errorMsg = error.message;
                 }
                 setMessage(errorMsg);
-                toast.error(errorMsg, { position: "top-center", autoClose: 5000 });
+                toast.error(errorMsg, {
+                    position: "top-center",
+                    autoClose: 5000,
+                });
             } else if (paymentIntent) {
-                if (paymentIntent.status === 'succeeded') {
+                if (paymentIntent.status === "succeeded") {
                     setMessage("Thanh toán thành công!");
                     onSuccess();
-                    toast.success("Thanh toán thành công! Chúng tôi sẽ liên hệ sớm.", {
-                        position: "top-center",
-                        autoClose: 3000,
-                    });
-                } else if (paymentIntent.status === 'requires_action') {
+                    toast.success(
+                        "Thanh toán thành công! Chúng tôi sẽ liên hệ sớm.",
+                        {
+                            position: "top-center",
+                            autoClose: 3000,
+                        }
+                    );
+                } else if (paymentIntent.status === "requires_action") {
                     setMessage("Vui lòng xác thực thanh toán (3D Secure)...");
                     // Stripe tự hiện popup xác thực, sau đó callback sẽ chạy lại
                 } else {
@@ -77,8 +100,8 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
                 id="payment-element"
                 options={{
                     wallets: {
-                        applePay: 'never',
-                        googlePay: 'never',
+                        applePay: "never",
+                        googlePay: "never",
                     },
                 }}
             />
@@ -91,7 +114,11 @@ const CheckoutForm = ({ clientSecret, onSuccess }) => {
             >
                 {isLoading ? (
                     <>
-                        <Spinner animation="border" size="sm" className="me-2" />
+                        <Spinner
+                            animation="border"
+                            size="sm"
+                            className="me-2"
+                        />
                         Đang xử lý...
                     </>
                 ) : (
@@ -132,15 +159,18 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
         setError(null);
 
         try {
-            const response = await fetch('https://ghoul-helpful-salmon.ngrok-free.app/api/auth/create-payment-intent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    productId: product.id,
-                    title: product.title,
-                    amount: total,
-                }),
-            });
+            const response = await fetch(
+                "https://ghoul-helpful-salmon.ngrok-free.app/api/auth/create-payment-intent",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        productId: product.id,
+                        title: product.title,
+                        amount: total,
+                    }),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`Lỗi HTTP: ${response.status}`);
@@ -214,18 +244,25 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                     <div className="mb-3">
                         <strong>Giá:</strong>{" "}
                         <span className="text-primary fw-bold">
-                            {product.price?.currency || "$"}{priceAmount.toLocaleString()}
+                            {product.price?.currency || "$"}
+                            {priceAmount.toLocaleString()}
                         </span>
                     </div>
                     <div className="mb-3">
                         <strong>Thuế (8%):</strong>{" "}
-                        {product.price?.currency || "$"}{tax.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                        {product.price?.currency || "$"}
+                        {tax.toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                        })}
                     </div>
                     <hr />
                     <div className="mb-4">
                         <strong>Tổng thanh toán:</strong>{" "}
                         <span className="fs-4 fw-bold text-success">
-                            {product.price?.currency || "$"}{total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                            {product.price?.currency || "$"}
+                            {total.toLocaleString(undefined, {
+                                minimumFractionDigits: 0,
+                            })}
                         </span>
                     </div>
                 </>
@@ -235,7 +272,11 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                 </Alert>
             )}
 
-            {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
+            {error && (
+                <Alert variant="danger" className="mb-4">
+                    {error}
+                </Alert>
+            )}
             {success ? (
                 <Alert variant="success" className="mb-4">
                     Thanh toán thành công! Chúng tôi sẽ liên hệ sớm.
@@ -243,7 +284,10 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
             ) : (
                 <div className="mt-4">
                     {clientSecret ? (
-                        <Elements stripe={getStripe()} options={{ clientSecret }}>
+                        <Elements
+                            stripe={getStripe()}
+                            options={{ clientSecret }}
+                        >
                             <CheckoutForm onSuccess={handleSuccess} />
                         </Elements>
                     ) : (
@@ -256,7 +300,11 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
                         >
                             {isInitializing ? (
                                 <>
-                                    <Spinner animation="border" size="sm" className="me-2" />
+                                    <Spinner
+                                        animation="border"
+                                        size="sm"
+                                        className="me-2"
+                                    />
                                     Đang khởi tạo thanh toán...
                                 </>
                             ) : (

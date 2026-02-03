@@ -34,7 +34,6 @@ const ProductArea = ({ className, space, data }) => (
         <div className="container">
             <div className="row g-5">
                 <div className="col-lg-8 custom-product-col">
-
                     <TabContainer defaultActiveKey="nav-home">
                         <Nav className="product-tab-nav">
                             <div className="nav">

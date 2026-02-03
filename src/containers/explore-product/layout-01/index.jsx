@@ -51,7 +51,9 @@ const ExploreProductArea = ({ className, space, data }) => {
 
     const sortHandler = ({ value }) => {
         const sorted = [...state.products].sort((a, b) =>
-            value === "most-liked" ? b.likeCount - a.likeCount : a.likeCount - b.likeCount
+            value === "most-liked"
+                ? b.likeCount - a.likeCount
+                : a.likeCount - b.likeCount
         );
         dispatch({ type: "SET_PRODUCTS", payload: sorted });
     };
@@ -102,7 +104,13 @@ const ExploreProductArea = ({ className, space, data }) => {
     };
 
     return (
-        <div className={clsx("rn-product-area", space === 1 && "rn-section-gapTop", className)}>
+        <div
+            className={clsx(
+                "rn-product-area",
+                space === 1 && "rn-section-gapTop",
+                className
+            )}
+        >
             <div className="container">
                 {/* <div className="row mb--20 align-items-center">
                     <div className="col-lg-6 col-md-6 col-sm-6 col-12 mt_mobile--15">

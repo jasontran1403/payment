@@ -38,7 +38,7 @@
                 visibility: hidden;
                 text-align: left;
                 padding: 12px 0;
-                transition: .3s;
+                transition: 0.3s;
                 border-radius: 0 0 10px 10px;
                 background-color: var(--background-color-2);
                 border-left: 1px solid #ffffff14;
@@ -54,7 +54,7 @@
                         color: var(--color-body);
                         margin: 0 10px;
                         border-radius: 4px;
-                        transition: .3s;
+                        transition: 0.3s;
                         display: flex;
                         align-items: center;
                         justify-content: space-between;
@@ -112,7 +112,7 @@
 
                 .rn-megamenu {
                     position: absolute;
-                    transition: .3s;
+                    transition: 0.3s;
                     top: 90%;
                     width: 100%;
                     left: 50%;
@@ -142,7 +142,7 @@
                                     color: var(--color-body);
                                     margin: 0 10px;
                                     border-radius: 4px;
-                                    transition: .3s;
+                                    transition: 0.3s;
                                     display: flex;
                                     align-items: center;
                                     justify-content: space-between;
@@ -158,8 +158,6 @@
                                         color: var(--color-body);
                                         transition: var(--transition);
                                     }
-
-
 
                                     &:hover {
                                         color: var(--color-primary);
@@ -185,7 +183,7 @@
                         content: "\e92e";
                         position: absolute;
                         top: 50%;
-                        font-family: 'feather' !important;
+                        font-family: "feather" !important;
                         right: -7px;
                         transform: translateY(-50%);
                         @media #{$laptop-device} {
@@ -266,7 +264,9 @@
 
                         &.nav-item {
                             .submenu {
-                                background: var(--background-color-2) !important;
+                                background: var(
+                                    --background-color-2
+                                ) !important;
                             }
                         }
                     }
@@ -293,10 +293,17 @@ span {
             left: 0;
             top: 0;
             position: absolute;
-            background: linear-gradient(95deg, #000000 15%, #0074b9 45%, #0400ff 75%, #2a1b95) 95%/200% 100%;
+            background: linear-gradient(
+                    95deg,
+                    #000000 15%,
+                    #0074b9 45%,
+                    #0400ff 75%,
+                    #2a1b95
+                )
+                95%/200% 100%;
             z-index: -1;
             border-radius: 100px;
-            opacity: .5;
+            opacity: 0.5;
         }
     }
 }

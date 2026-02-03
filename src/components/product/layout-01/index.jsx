@@ -1,24 +1,13 @@
-import { useState } from "react";
 import PropTypes from "prop-types";
 import Image from "next/image";
 import clsx from "clsx";
-import ProductBid from "@components/product-bid";
 import { ImageType } from "@utils/types";
 
-const Product = ({
-    overlay,
-    title,
-    price,
-    likeCount,
-    image,
-}) => {
+const Product = ({ overlay, title, price, likeCount, image }) => {
     return (
         <>
             <div
-                className={clsx(
-                    "product-style-one",
-                    !overlay && "no-overlay"
-                )}
+                className={clsx("product-style-one", !overlay && "no-overlay")}
             >
                 <div className="card-thumbnail">
                     {image?.src && (

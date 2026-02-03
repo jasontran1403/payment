@@ -5,24 +5,24 @@
  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
  */
 
- /* globals.css hoặc file main CSS */
+/* globals.css hoặc file main CSS */
 .Toastify__toast {
-  z-index: 999999 !important;
-  min-width: 350px !important;
-  font-size: 16px !important;
-  padding: 16px !important;
+    z-index: 999999 !important;
+    min-width: 350px !important;
+    font-size: 16px !important;
+    padding: 16px !important;
 }
 
 .Toastify__toast--success {
-  background: #28a745 !important;
+    background: #28a745 !important;
 }
 
 .Toastify__toast--error {
-  background: #dc3545 !important;
+    background: #dc3545 !important;
 }
 
 .Toastify__toast-container {
-  top: 20px !important; /* cách top một chút để không dính sát */
+    top: 20px !important; /* cách top một chút để không dính sát */
 }
 
 :root {
@@ -2968,7 +2968,9 @@ textarea.form-control-lg {
     border-bottom-right-radius: 0;
 }
 .input-group
-    > :not(:first-child):not(.dropdown-menu):not(.valid-tooltip):not(.valid-feedback):not(.invalid-tooltip):not(.invalid-feedback) {
+    > :not(:first-child):not(.dropdown-menu):not(.valid-tooltip):not(
+        .valid-feedback
+    ):not(.invalid-tooltip):not(.invalid-feedback) {
     margin-left: -1px;
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
