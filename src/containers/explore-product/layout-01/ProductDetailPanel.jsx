@@ -62,21 +62,10 @@ const CheckoutForm = ({ onSuccess, onError }) => {
                 }
                 setMessage(errorMsg);
                 onError(errorMsg);
-                toast.error(errorMsg, {
-                    position: "top-center",
-                    autoClose: 5000,
-                });
             } else if (paymentIntent) {
                 if (paymentIntent.status === "succeeded") {
                     setMessage("Thanh toán thành công!");
                     onSuccess();
-                    toast.success(
-                        "Thanh toán thành công! Chúng tôi sẽ liên hệ sớm.",
-                        {
-                            position: "top-center",
-                            autoClose: 3000,
-                        }
-                    );
                 } else if (paymentIntent.status === "requires_action") {
                     setMessage("Vui lòng xác thực thanh toán (3D Secure)...");
                 } else {
@@ -223,10 +212,6 @@ const ProductDetailPanel = ({ product, isOpen, onClose }) => {
 
     const handleSuccess = () => {
         setSuccess(true);
-        toast.success("Thanh toán thành công! Chúng tôi sẽ liên hệ sớm.", {
-            position: "top-center",
-            autoClose: 3000,
-        });
         setTimeout(() => onClose(), 3500);
     };
 
